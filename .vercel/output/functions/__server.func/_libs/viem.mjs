@@ -1,0 +1,171 @@
+import { r as __exportAll } from "../_runtime.mjs";
+import { a as call, c as getAbortError, d as stringify, f as decodeErrorResult, g as isHex, h as BaseError, l as getUrl, m as concat, o as isAddressEqual, p as encodeAbiParameters, r as localBatchGatewayRequest, s as HttpRequestError, u as isAbortError } from "./@coinbase/cdp-sdk+[...].mjs";
+//#region node_modules/viem/_esm/errors/ccip.js
+var OffchainLookupError = class extends BaseError {
+	constructor({ callbackSelector, cause, data, extraData, sender, urls }) {
+		super(cause.shortMessage || "An error occurred while fetching for an offchain result.", {
+			cause,
+			metaMessages: [
+				...cause.metaMessages || [],
+				cause.metaMessages?.length ? "" : [],
+				"Offchain Gateway Call:",
+				urls && ["  Gateway URL(s):", ...urls.map((url) => `    ${getUrl(url)}`)],
+				`  Sender: ${sender}`,
+				`  Data: ${data}`,
+				`  Callback selector: ${callbackSelector}`,
+				`  Extra data: ${extraData}`
+			].flat(),
+			name: "OffchainLookupError"
+		});
+	}
+};
+var OffchainLookupResponseMalformedError = class extends BaseError {
+	constructor({ result, url }) {
+		super("Offchain gateway response is malformed. Response data must be a hex value.", {
+			metaMessages: [`Gateway URL: ${getUrl(url)}`, `Response: ${stringify(result)}`],
+			name: "OffchainLookupResponseMalformedError"
+		});
+	}
+};
+var OffchainLookupSenderMismatchError = class extends BaseError {
+	constructor({ sender, to }) {
+		super("Reverted sender address does not match target contract address (`to`).", {
+			metaMessages: [`Contract address: ${to}`, `OffchainLookup sender address: ${sender}`],
+			name: "OffchainLookupSenderMismatchError"
+		});
+	}
+};
+//#endregion
+//#region node_modules/viem/_esm/utils/ccip.js
+var ccip_exports = /* @__PURE__ */ __exportAll({
+	ccipRequest: () => ccipRequest,
+	offchainLookup: () => offchainLookup,
+	offchainLookupAbiItem: () => offchainLookupAbiItem,
+	offchainLookupSignature: () => offchainLookupSignature
+});
+var offchainLookupSignature = "0x556f1830";
+var offchainLookupAbiItem = {
+	name: "OffchainLookup",
+	type: "error",
+	inputs: [
+		{
+			name: "sender",
+			type: "address"
+		},
+		{
+			name: "urls",
+			type: "string[]"
+		},
+		{
+			name: "callData",
+			type: "bytes"
+		},
+		{
+			name: "callbackFunction",
+			type: "bytes4"
+		},
+		{
+			name: "extraData",
+			type: "bytes"
+		}
+	]
+};
+async function offchainLookup(client, { blockNumber, blockTag, data, requestOptions, to }) {
+	const { args } = decodeErrorResult({
+		data,
+		abi: [offchainLookupAbiItem]
+	});
+	const [sender, urls, callData, callbackSelector, extraData] = args;
+	const { ccipRead } = client;
+	const ccipRequest_ = ccipRead && typeof ccipRead?.request === "function" ? ccipRead.request : ccipRequest;
+	try {
+		if (!isAddressEqual(to, sender)) throw new OffchainLookupSenderMismatchError({
+			sender,
+			to
+		});
+		const result = urls.includes("x-batch-gateway:true") ? await localBatchGatewayRequest({
+			data: callData,
+			ccipRequest: (parameters) => ccipRequest_({
+				...parameters,
+				requestOptions
+			})
+		}) : await ccipRequest_({
+			data: callData,
+			requestOptions,
+			sender,
+			urls
+		});
+		const { data: data_ } = await call(client, {
+			blockNumber,
+			blockTag,
+			data: concat([callbackSelector, encodeAbiParameters([{ type: "bytes" }, { type: "bytes" }], [result, extraData])]),
+			requestOptions,
+			to
+		});
+		return data_;
+	} catch (err) {
+		if (requestOptions?.signal?.aborted) throw getAbortError(requestOptions.signal);
+		if (isAbortError(err)) throw err;
+		throw new OffchainLookupError({
+			callbackSelector,
+			cause: err,
+			data,
+			extraData,
+			sender,
+			urls
+		});
+	}
+}
+async function ccipRequest({ data, requestOptions, sender, urls }) {
+	let error = /* @__PURE__ */ new Error("An unknown error occurred.");
+	for (let i = 0; i < urls.length; i++) {
+		if (requestOptions?.signal?.aborted) throw getAbortError(requestOptions.signal);
+		const url = urls[i];
+		const method = url.includes("{data}") ? "GET" : "POST";
+		const body = method === "POST" ? {
+			data,
+			sender
+		} : void 0;
+		const headers = method === "POST" ? { "Content-Type": "application/json" } : {};
+		try {
+			const response = await fetch(url.replace("{sender}", sender.toLowerCase()).replace("{data}", data), {
+				body: JSON.stringify(body),
+				headers,
+				method,
+				...requestOptions?.signal ? { signal: requestOptions.signal } : {}
+			});
+			let result;
+			if (response.headers.get("Content-Type")?.startsWith("application/json")) result = (await response.json()).data;
+			else result = await response.text();
+			if (!response.ok) {
+				error = new HttpRequestError({
+					body,
+					details: result?.error ? stringify(result.error) : response.statusText,
+					headers: response.headers,
+					status: response.status,
+					url
+				});
+				continue;
+			}
+			if (!isHex(result)) {
+				error = new OffchainLookupResponseMalformedError({
+					result,
+					url
+				});
+				continue;
+			}
+			return result;
+		} catch (err) {
+			if (requestOptions?.signal?.aborted) throw getAbortError(requestOptions.signal);
+			if (isAbortError(err)) throw err;
+			error = new HttpRequestError({
+				body,
+				details: err.message,
+				url
+			});
+		}
+	}
+	throw error;
+}
+//#endregion
+export { ccip_exports as t };

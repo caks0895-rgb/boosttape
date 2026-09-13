@@ -1,0 +1,96 @@
+Build an MVP API that sells DexScreener promotion events to AI agents.
+
+Goal
+- Agents ask: "which tokens were recently boosted / profile-updated / paid on DexScreener?"
+- Return 3–5 tokens with event time and price reaction after the event.
+- Payments will be x402 USDC on Base later. For v1, ship the data API first, then add x402.
+
+Product rules
+- Payment rail and data rail are separate: payment = Base USDC only (later). Data = any DexScreener chain, especially solana, robinhood, base.
+- This is a promotion-event feed + price reaction, NOT financial advice, NOT a safety/audit score.
+- Do not just proxy raw DexScreener lists. Deduplicate, filter junk, attach price change after the event, add flags.
+- Keep scope tiny: one useful paid endpoint + health + docs.
+
+Public endpoints
+1. GET /health
+   Free. { ok, as_of, items_cached, last_poll_ok }
+
+2. GET /v1/events
+   Query:
+   - chain=solana|base|robinhood|all  (default: all)
+   - type=boost|profile|paid|all     (default: all)
+   - limit=3..10                     (default: 5)
+   - min_liq=number                  (default: 5000)
+   Response JSON exactly:
+   {
+     "as_of": ISO timestamp,
+     "count": number,
+     "disclaimer": "DexScreener boost/profile/paid are promotions, not safety verification.",
+     "items": [
+       {
+         "symbol": string,
+         "name": string|null,
+         "chain": string,
+         "token": string,
+         "pair": string|null,
+         "dexscreener_url": string,
+         "event": "boost"|"profile"|"paid",
+         "event_at": ISO timestamp|null,
+         "age_min": number|null,
+         "liquidity_usd": number|null,
+         "volume_24h_usd": number|null,
+         "price_usd": number|null,
+         "change_after": { "m5": number|null, "h1": number|null, "h6": number|null },
+         "flags": string[]
+       }
+     ]
+   }
+   Flags to implement if data exists: thin_lp, dumped_after_boost, pumped_then_flat, too_new, missing_price.
+
+Data sources (official DexScreener public API, no key)
+- GET https://api.dexscreener.com/token-boosts/latest/v1
+- GET https://api.dexscreener.com/token-boosts/top/v1
+- GET https://api.dexscreener.com/token-profiles/latest/v1
+- GET https://api.dexscreener.com/token-profiles/recent-updates/v1
+- GET https://api.dexscreener.com/orders/v1/{chainId}/{tokenAddress} for paid/order status when needed
+- Pair/price: https://api.dexscreener.com/tokens/v1/{chainId}/{tokenAddress}
+Respect rate limits (~60/min for boost/profile, ~300/min for pairs). Cache aggressively.
+
+Collector
+- Poll boost + profile feeds every 30–60s.
+- Store first-seen time as event_at if API has no timestamp.
+- After first seen, snapshot price. Later compute change_after vs current price and/or DexScreener priceChange fields (m5/h1/h6) when available.
+- Dedupe by chain+token+event type.
+- Prefer unique tokens in one response.
+- Drop items with liquidity below min_liq when liquidity is known.
+- SQLite is fine. No heavy infra.
+
+Stack
+- TypeScript + Node 22
+- Framework: Hono or Express
+- Deployable on Vercel or a single small VPS
+- Env-based config
+- Add openapi.json and llms.txt describing the API for agents
+
+x402 (phase 2, after data works)
+- Leave a clear TODO.
+- Paid route will be GET /v1/events
+- Price $0.01 USDC on Base (eip155:8453)
+- Use Coinbase CDP facilitator later via CDP_API_KEY_ID, CDP_API_KEY_SECRET, X402_PAY_TO
+- Do not block v1 on CDP keys
+- /health stays free
+
+Docs to generate
+- README with curl examples
+- Example successful JSON
+- Note that boost/paid != verified safe
+- How to filter by chain
+
+Acceptance
+- curl /health works
+- curl /v1/events?limit=5 returns valid JSON with 3–5 items when DexScreener is up
+- Each item includes chain, token, event, dexscreener_url
+- No secrets in repo
+- Simple local run: npm install && npm run dev
+
+Start by scaffolding the project, then implement collector + /v1/events, then docs. Ask before adding extra endpoints or UI.

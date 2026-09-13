@@ -1,0 +1,69 @@
+# BoostTape
+
+BoostTape is a tiny HTTP API that answers: which tokens were recently boosted, profile-updated, or paid on DexScreener — and what the price did after that event.
+
+This is a promotion-event feed + price reaction. It is NOT financial advice and NOT a safety or audit score. DexScreener boost / profile / paid are paid attention, not verification.
+
+## Base URL
+
+Use the origin that served this file.
+
+## Endpoints
+
+### GET /health
+Free. JSON: `{ ok, as_of, items_cached, last_poll_ok }`
+No payment header.
+
+### GET /v1/events
+The product. Price: $0.005 USDC on Base (eip155:8453), x402 exact, settled by a facilitator. Bazaar discovery is declared on the 402 PAYMENT-REQUIRED payload.
+
+Unpaid calls return HTTP 402. Retry with PAYMENT-SIGNATURE.
+
+Query:
+- chain=solana|base|robinhood|all  (default all)
+- type=boost|profile|paid|all      (default all)
+- limit=3..10                      (default 5)
+- min_liq=number                   (default 5000)
+- since=ISO-8601|unix-seconds|unix-ms
+  Aliases: since_timestamp, cursor
+  Polling: pass next_since from the previous response.
+
+Without since: unique tokens, newest first. next_since = as_of.
+With since: events with event_at > since, oldest first, unique by chain+token+event. Empty items is valid. next_since = last item event_at, or the same since if empty.
+
+Returns:
+as_of, since, next_since, count, disclaimer, items[]
+Each item: symbol, name, chain, token, pair, dexscreener_url, event, event_at, age_min,
+liquidity_usd, volume_24h_usd, price_usd, change_after { m5, h1, h6 }, flags[]
+
+Flags (when data exists): thin_lp, dumped_after_boost, pumped_then_flat, too_new, missing_price.
+
+Disclaimer field is always:
+"DexScreener boost/profile/paid are promotions, not safety verification."
+
+Payment headers:
+- Request: PAYMENT-SIGNATURE (base64 x402 payload)
+- 402 response: PAYMENT-REQUIRED
+- Paid 200: PAYMENT-RESPONSE
+
+CORS allows PAYMENT-SIGNATURE; exposes PAYMENT-REQUIRED and PAYMENT-RESPONSE.
+
+### GET /openapi.json
+OpenAPI 3.1 spec.
+
+### GET /llms.txt
+This file.
+
+## Filtering by chain
+
+Pass chain=solana or chain=base or chain=robinhood to restrict the tape.
+Data covers any DexScreener chain. Payment is Base USDC only.
+
+## What this is not
+
+Do not treat a boost as a green audit. Do not treat dumped_after_boost as a trade signal. The feed tells you who paid for visibility and what the printed price did next.
+
+## Example
+
+GET /v1/events?chain=solana&type=boost&limit=5
+GET /v1/events?limit=5&since=2026-09-13T00:00:00.000Z

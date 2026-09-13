@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "BoostTape",
+      "hasCanvas": false,
+      "bodyTextLen": 4779,
+      "bodyTextHash": "948ea139aa1e378b66e159f7101e686dcaf0c3d62094a9854f799c3c89fa8dc7",
+      "bodyTextPrefix": "BoostTape Docs GET /v1/events PROMOTION-EVENT API FOR AGENTS Whi",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "BoostTape",
+      "hasCanvas": false,
+      "bodyTextLen": 4779,
+      "bodyTextHash": "948ea139aa1e378b66e159f7101e686dcaf0c3d62094a9854f799c3c89fa8dc7",
+      "bodyTextPrefix": "BoostTape Docs GET /v1/events PROMOTION-EVENT API FOR AGENTS Whi",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
