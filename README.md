@@ -85,24 +85,14 @@ No DexScreener API key. Respect rate limits; cache is in-memory (fine for a sing
 Public copy only says the route is paid via an x402 facilitator. Do not put CDP key names, wallet env, or host setup on the site, OpenAPI, or llms.txt.
 
 - Paid route: `GET /v1/events`
-- Price: `$0.005` USDC on Base (`eip155:8453`)
-- Why not `$0.001`: CDP charges `$0.001` per settle after 1,000 free/month. Matching that ticket leaves ~$0 at scale. `$0.005` is 5× the fee (~80% after CDP) and still a micropayment if agents poll with `since` instead of every few seconds.
+- Price: **`$0.005` USDC** on Base (`eip155:8453`). Charged ticket, not `$0.001`.
+- Why `$0.005` instead of `$0.001`: CDP takes `$0.001` per settle after 1,000 free/month. A `$0.001` ticket nets ~$0 at scale. `$0.005` is 5× the fee (~80% after CDP) and still a micropayment if agents poll with `since`.
 - Scheme: `exact`
 - Facilitator: Coinbase CDP
 - Bazaar: discovery metadata is declared on the route (query params, example output). Facilitators index it from the 402.
 - `/health` stays free
 
 Host env (server-only — never `VITE_` prefix, never commit, never log values, never mention on the public page):
-
-- Paid route: `GET /v1/events`
-- Price: `$0.005` USDC on Base (`eip155:8453`)
-- Why not `$0.001`: CDP charges `$0.001` per settle after 1,000 free/month. Matching that ticket leaves ~$0 at scale. `$0.005` is 5× the fee (~80% after CDP) and still a micropayment if agents poll with `since` instead of every few seconds.
-- Scheme: `exact`
-- Facilitator: Coinbase CDP
-- Bazaar: discovery metadata is declared on the route (query params, example output). Facilitators index it from the 402.
-- `/health` stays free
-
-Host env (server-only — never `VITE_` prefix, never commit, never log values):
 
 | Name | Role |
 | --- | --- |
